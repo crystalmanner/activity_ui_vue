@@ -1,0 +1,78 @@
+# CircleCI 2.0 configuration file
+version: 2
+jobs:
+  build:
+    working_directory: ~/repo
+
+    environment:
+      BASH_ENV: ~/.nvm/nvm.sh
+
+    docker:
+      # specify the version you desire here
+      - image: laratools/ci:7.3
+
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - 67:32:5e:8f:3f:1e:e1:44:a9:73:e7:aa:63:1c:6a:45
+
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "package.json" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+
+      - run:
+          name: Install Node Dependencies
+          command: |
+            nvm install
+            npm i -g yarn
+            yarn install
+
+      - save_cache:
+          key: v1-dependencies-{{ checksum "package.json" }}
+          paths:
+            - ./node_modules
+
+  test_js:
+    working_directory: ~/repo
+
+    environment:
+      BASH_ENV: ~/.nvm/nvm.sh
+
+    docker:
+       - image: laratools/ci:7.3
+
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - 67:32:5e:8f:3f:1e:e1:44:a9:73:e7:aa:63:1c:6a:45
+
+      - checkout
+
+      - restore_cache:
+          keys:
+            - v1-{{ checksum "package.json" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+
+      - run:
+          name: JS Test and Lint
+          command: |
+            nvm install
+            npm i -g yarn
+            yarn lint
+            yarn test --maxWorkers=4
+          no_output_timeout: 20m
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+      - test_js:
+          requires:
+            - build
